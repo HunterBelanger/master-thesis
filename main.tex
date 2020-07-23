@@ -1,0 +1,51 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+%                                                                 %
+%                            ROOT FILE                            %
+%                                                                 %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+%
+%  Run LaTeX or pdfLaTeX on this file to produce your thesis.
+%  To produce the abstract title page followed by the abstract,
+%  see the file abstitle-phd.tex or abstitle-mas.tex.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass[chap]{thesis}
+\usepackage{physics}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{bm}
+\usepackage{subcaption}
+\usepackage{indentfirst}
+%\usepackage{newpxtext,newpxmath}
+\usepackage{multirow}
+\usepackage{tabularx}
+\usepackage[hidelinks]{hyperref}
+\newcommand{\angstrom}{\text{\normalfont\AA}}
+
+
+% Uncomment the following if you want centered-lined captions:
+%\captionsetup{format=plain,justification=centering}
+
+
+%\includeonly{preface}  % use \includeonly to process only
+%\includeonly{introduction,hydration}
+                         % the file(s) listed inside the braces        
+\begin{document}
+ 
+% Use the appropriate example title page.  A senior thesis
+% can be set by changing the thesis name in rpititle-mas.tex. 
+\include{title}   % titlepage material for Master thesis p
+\include{preface}
+\include{acknowledgements}  % include for acknowledgements
+\include{abstract} % abstract
+\include{resume} % abstract in Fr.
+\include{introduction} % chapter 1
+\include{hydration} % chapter 2
+\include{spectroscopy} % chapter 3
+\include{simulations} % chapter 4
+\include{future} % chapter 5
+\include{bibliography} % bibliography
+\include{appendix} % appendix
+ 
+\end{document}

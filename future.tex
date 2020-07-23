@@ -1,0 +1,26 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+%                                                                 %
+%                            CHAPTER FIVE                         %
+%                                                                 %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+ 
+\chapter{Conclusions and Future Considerations}
+\section{Conclusions}
+Through the course of this work, it was determined that saturated salt solutions provide a cheap plausible method for controlling the hydration levels of Li or Na montmorillonite samples in powder form. For these two species of exchangeable cation, a mono or bilayer hydrate should be attainable. It is not feasible however to hydrate clay samples in the form of compressed disks. Also noted is the fact that one has only a few minutes to conduct a measurement outside of the regulated environment of the desiccator before a homogeneous bilayer hydrate is reduced to a monolayer.
+
+Infrared spectra of montmorillonite samples of varying exchangeable cation were obtained with pH values between 3 and 10. These spectra indicate that the frequency of the symmetric stretching mode of intercalated water is affected by the pH value, and as pH increases, so does the frequency of this vibrational mode. This was observed for samples of all species of exchangeable cation, and for samples coming from different clay mines as well. In general, most sample series examined experienced a shift in frequency of approximately 21 $cm^{-1}$ over the interval of pH 3 to pH 10. The frequency of the water deformation mode, and the O-H stretching mode of the structural hydroxyl groups did not appear to have any significant dependence on the pH. Also observed however was that while the frequency of the structural O-H stretching mode did not change with the pH, the value of this frequency seemed to be dependent on the clay mine from which it came, and not the species of interlaminar cation.
+
+A model to simulate the molecular vibrations of water intercalated in montmorillonite is also provided, using the structures and force field provided with the InterfaceFF in combination with the flexible water model. The method used to calculate the vibrational frequencies is also detailed, where Fourier transforms are taken of the angle between H atoms, and their distances from the O atom. Using this technique with the described models, the frequencies observed experimentally through the infrared spectroscopic measurements were accurately reproduced in the molecular dynamics simulations. This will provide a foundation from which future simulations examining the pH effects may be based.
+
+\section{pH Variations in Molecular Dynamics Simulations}
+While a model was developed to accurately simulate and calculate the vibrational modes of water intercalated in montmorillonites, no method was proposed to vary the pH of this system. In order to further investigate the experimental results discussed in Chapter 3, a means of changing the pH of the system must be determined. There are likely two possibilities to accomplish this. The first option is where H$^+$ ions are added to the interlaminar region with the water, and are allowed to move about in the system.
+
+Another approach which has been used previously in simulations of silica-water interfaces is to adjust the charges on the surface of the silica structure in a manner which reflects the different hydrogenation states which would occur with different pH levels \cite{emami2014force}, \cite{emami2014prediction}. This approach requires determining which atoms should receive a charge adjustment, and by what quantity. It must also be ensured that the system remains charge neutral as a whole. The next step should be the development of the process to apply this method to the montmorillonite samples, so that changes in the pH may be investigated using molecular dynamic simulations.
+
+\section{Terahertz Spectroscopy}
+While we have been considering interactions between the water molecules and the exchangeable cations and the surface of the clay structure, interactions between water molecules have not been adequately examined. The intercalated water molecules may form hydrogen bonds with one another, also affecting their intramolecular vibrational modes. One method of examining hydrogen bond networks is with terahertz spectroscopy \cite{liu1997terahertz}, \cite{shiraga2014hydration}. The first half of Equation~\ref{eq:potential} governing the intramolecular forces was probed using infrared spectroscopy. This is of course only half of the picture, and terahertz spectroscopy can help complete this picture, exploring the intermolecular forces which are described in the second half of Equation~\ref{eq:potential}. Such experiments could also be used to improve the model upon which the simulations have been based, providing better data for those who study clay minerals, and potential similar compounds such as silica and glass structures. Investigating the hydrogen bond density of the intercalated water would shine a new light on the questions at hand, as well as potentially help answer more general questions about the behavior of water confined on the nanoscale.
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: t
+%%% End: 

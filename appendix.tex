@@ -1,0 +1,783 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                                 %
+%                            APPENDICES                           %
+%                                                                 %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ 
+\appendix    % This command is used only once!
+\addcontentsline{toc}{chapter}{APPENDICES}             %toc entry  or:
+%\addtocontents{toc}{\parindent0pt\vskip12pt APPENDICES} %toc entry, no page #
+\chapter{Example LAMMPS Input Cards}
+
+\section{CVFF Input Card}
+\label{appendix:cvff}
+\begin{singlespace}
+\begin{verbatim}
+# structure info
+boundary p p p
+units real
+dimension 3
+atom_style full
+kspace_style pppm 1.0e-6
+pair_style lj/cut/coul/long 12.0 8.0
+bond_style harmonic
+angle_style harmonic
+dihedral_style harmonic
+improper_style cvff
+
+# Read in montmorillonite data file
+read_data Combined_Card.data
+
+# Use Waldman-Hagler combination rule
+pair_modify mix sixthpower
+
+# set water group
+group water type 16 17
+
+kspace_style pppm 1.0e-6
+neigh_modify delay 0 every 1 check yes
+
+# Generate random velocities for all particles T=300K random seed 8746
+velocity all create 300 8746
+
+# set timestep
+timestep 0.25
+thermo 10
+fix 2 all nve/limit 0.05
+run 1000
+unfix	2
+fix 2 all npt temp 300 300 10 iso 1 1 100
+run 2000
+dump 1 water custom 1 waterData id type mol xu yu zu
+dump 22 all xyz 100 posout.xyz
+run 200000
+\end{verbatim}
+\end{singlespace}
+
+\section{ReaxFF Input Card}
+\label{appendix:reaxff}
+\begin{singlespace}
+\begin{verbatim}
+# structure info
+boundary p p p
+%units real
+dimension 3
+
+# read data
+atom_style full
+read_data Kaolinite.data
+pair_style reax/c NULL
+pair_coeff * * ffield_CaSiAlO_Pitman.bin Al H O Si
+velocity all create 300 8746
+
+# set timestep
+timestep 0.5
+thermo 10
+fix 1 all qeq/reax 1 0.0 10.0 1.0e-6 reax/c
+fix 2 all nve/limit 0.05
+dump 1 all xyz 10 posout.xyz
+run 1000
+unfix	2
+
+fix 2 all npt temp 300 300 10 iso 1 1 100
+
+run 1000
+
+fix 3 all nve 
+run 20000
+\end{verbatim}
+\end{singlespace}
+
+
+\chapter{Codes Used For Analysis}
+
+\section{Python Script for Fourier Filter and Peak Locator}
+\label{appendix:fft_filter}
+\begin{singlespace}
+\begin{verbatim}
+"""
+    Fourier Filter
+    Hunter Belanger - hunter.belanger@gmail.com
+    Perform a FFT to remove high frequency noise from a signal stored
+    in a csv file. Fitered signal also output to csv.
+"""
+
+# Imports -----------------------------------------------------
+import peakutils
+import numpy as np
+from numpy import fft
+
+# Functions ---------------------------------------------------
+def Read_CSV(flnm):
+    y = []
+    x = []
+    # Open file
+    fl = open(flnm)
+    # Read in data
+    for line in fl:
+        line = line.split(",")
+        x.append(float(line[0]))
+        y.append(float(line[1]))
+    # Close file
+    fl.close()
+    
+    return (x,y)
+
+def RM_Background(y, linear=True):
+    if linear:
+        bg = np.arange(y[0], y[-1], (y[-1]-y[0])/float(len(y)))
+        if len(bg) != len(y):
+            print "Help"
+            bg = bg[:-1]
+        return y - bg
+    
+    else:
+        bg = []
+        for i in range(len(y)):
+        bg.append(min(y))
+        return np.array(y) - np.array(bg)
+
+def FFT_Filter(x,y,frq):
+    F = fft.rfft(y)
+    frqs = fft.rfftfreq(len(y), (x[1]-x[0]))
+    
+    for i in range(len(F)):
+        if frqs[i] >= frq:
+        F[i] = 0
+
+    y_out = fft.irfft(F)
+    
+    return y_out
+
+def Write_CSV(x,y,z, flnm):
+    fl = open(flnm, "w")
+
+    for i in range(len(x)):
+        line = str(x[i]) + "," + str(y[i]) + "," + str(z[i]) + "\n"
+        fl.write(line)
+    
+    fl.close()
+
+# Main --------------------------------------------------------
+if __name__ == "__main__":
+    flnm = raw_input("Enter File Name => ")
+    
+    # Read in data
+    t,s = Read_CSV(flnm)
+    
+    wn = []
+    ab = []
+    
+    # Only keep data above 2500 wavenumbers
+    for i in range(len(t)):
+        if t[i] >= 2500:
+        wn.append(t[i])
+        ab.append(s[i])
+    
+    # Removes last data point which is extraneous
+    wn = wn[:-1]
+    ab = ab[:-1]
+    
+    # Remove background
+    ab = RM_Background(ab)
+    
+    # Perform Fourier Filter
+    ab_out = FFT_Filter(wn,ab,0.024)
+    
+    # Send data to numpy arrays
+    wn = np.array(wn)
+    ab_out = np.array(ab_out)
+    
+    # Hydrx indecies
+    lH = np.where( abs(wn - 3350) == min(abs(wn - 3350)))
+    hH = np.where( abs(wn - 3450) == min(abs(wn - 3450)))
+    
+    # Wtr indecies
+    lW = np.where( abs(wn - 3450) == min(abs(wn - 3450)))
+    hW = np.where( abs(wn - 4000) == min(abs(wn - 4000)))
+    
+    # Gets Hydrx pk by fitting Gaussians
+    pksH = peakutils.interpolate(wn[lH[0][0]:hH[0][0]], 
+                                 ab_out[lH[0][0]:hH[0][0]])
+
+    # Gets Hydrx pk by fitting Gaussians
+    pksW = peakutils.interpolate(wn[lW[0][0]:hW[0][0]],
+                                 ab_out[lW[0][0]:hW[0][0]])
+    
+    print pksH
+    print pksW
+    print pksW[0]
+\end{verbatim}
+\end{singlespace}
+
+\newpage
+\section{C++ Program to Obtain Vibrational Modes of Water Molecules}
+\label{appendix:cpp_freqs}
+\begin{singlespace}
+\begin{verbatim}
+/*
+    Frequency Parser
+    Hunter Belanger - hunter.belanger@gmail.com
+
+    Compile: g++ -Ofast -lgsl -lgslcblas -lm -lfftw3 -Wall main.cpp -o main
+    Run: ./main path/to/dump/file LAMMPS_Timestpe Data_Dumped_Every 
+    (Eg: ./main waterData 0.25 1)
+*/
+
+#include <iostream>
+#include <iomanip>
+#include <math.h>
+#include <string>
+#include <fstream>
+#include <vector>
+#include <boost/algorithm/string.hpp>
+#include <fftw3.h>
+#include <gsl/gsl_rng.h>
+#include <gsl/gsl_matrix.h>
+#include <gsl/gsl_vector.h>
+#include <gsl/gsl_blas.h>
+#include <gsl/gsl_multifit_nlinear.h>
+
+using namespace std;
+using namespace boost::algorithm;
+
+struct data {
+    size_t n;
+    double * t;
+    double * y;
+};
+
+int expb_f (const gsl_vector * x, void *data, gsl_vector * f) {
+    size_t n = ((struct data *)data)->n;
+    double *t = ((struct data *)data)->t;
+    double *y = ((struct data *)data)->y;
+
+    double A = gsl_vector_get (x, 0);
+    double x0 = gsl_vector_get (x, 1);
+    double w = gsl_vector_get (x, 2);
+
+    size_t i;
+
+    for (i = 0; i < n; i++) {
+        /* Model Yi = A * exp(-(t_i - x0)^2/w)*/
+        double Yi = A * exp (- ((t[i] - x0)*(t[i] - x0))/w );
+        gsl_vector_set (f, i, Yi - y[i]);
+    }
+
+    return GSL_SUCCESS;
+}
+
+int expb_df (const gsl_vector * x, void *data, gsl_matrix * J) {
+    size_t n = ((struct data *)data)->n;
+    double *t = ((struct data *)data)->t;
+
+    double A = gsl_vector_get (x, 0);
+    double x0 = gsl_vector_get (x, 1);
+    double w = gsl_vector_get (x, 2);
+
+    size_t i;
+
+    for (i = 0; i < n; i++) {
+        /* Jacobian matrix J(i,j) = dfi / dxj, */
+        double e = exp(- (t[i] - x0)*(t[i] - x0)/w);
+        gsl_matrix_set (J, i, 0, e);
+        gsl_matrix_set (J, i, 1, A * e * (2*(t[i]-x0)/w));
+        gsl_matrix_set (J, i, 2, A * e * ((t[i]-x0)*(t[i]-x0))/(w*w));
+    }
+
+    return GSL_SUCCESS;
+}
+
+void Numbers_From_File(char* &fname, int &ntsteps, int &natoms, 
+                       int &minmol, int &maxmol) {
+    ifstream dataFile(fname);
+    string line;
+    vector<string> lineV = vector<string>();
+    int count = 0;
+    int acount = 0;
+    bool parse (false);
+    while(getline(dataFile, line)) {
+        count += 1;
+        if (count == 4) {natoms = stoi(line);}
+
+        if ((ntsteps == 1) and (parse)) {
+            acount += 1;
+            split(lineV, line, is_space());
+            if (stoi(lineV[2]) < minmol) {minmol = stoi(lineV[2]);}
+            else if (stoi(lineV[2]) > maxmol) {maxmol = stoi(lineV[2]);}
+
+            if (acount == natoms) {parse = false;}
+        }
+
+        if (trim_copy(line) == "ITEM: ATOMS id type mol xu yu zu") {
+            ntsteps += 1;
+            parse = true;
+        }
+    }
+
+    dataFile.close();
+}
+
+void Sort_Molecules(double** &data, double*** molecules, int* &H1, 
+                    int* &H2, int* &O, int &tstep, int &natoms, 
+                    int &minmol, int &maxmol) {
+    double* rH1 = (double*) calloc(3, sizeof(double));
+    double* rH2 = (double*) calloc(3, sizeof(double));
+    double* rO = (double*) calloc(3, sizeof(double));
+    double* r1 = (double*) calloc(3, sizeof(double));
+    double* r2 = (double*) calloc(3, sizeof(double));
+    int cnt = 0;
+    for (int i = 0; i < (maxmol - minmol + 1); i++) {
+        for (int atm = 0; atm < natoms; atm++) {
+            if (data[atm][0] == H1[i]) {
+                rH1[0] = data[atm][3];
+                rH1[1] = data[atm][4];
+                rH1[2] = data[atm][5];
+                cnt += 1;
+            }
+            else if (data[atm][0] == H2[i]) {
+                rH2[0] = data[atm][3];
+                rH2[1] = data[atm][4];
+                rH2[2] = data[atm][5];
+                cnt += 1;
+            }
+            else if (data[atm][0] == O[i]) {
+                rO[0] = data[atm][3];
+                rO[1] = data[atm][4];
+                rO[2] = data[atm][5];
+                cnt += 1;
+            }
+
+            if (cnt == 3) {break;}
+        }
+        cnt = 0;
+        r1[0] = rH1[0] - rO[0];
+        r1[1] = rH1[1] - rO[1];
+        r1[2] = rH1[2] - rO[2];
+
+        r2[0] = rH2[0] - rO[0];
+        r2[1] = rH2[1] - rO[1];
+        r2[2] = rH2[2] - rO[2];
+
+        double mr1 = pow( r1[0]*r1[0] + r1[1]*r1[1] + r1[2]*r1[2] ,0.5);
+        double mr2 = pow( r2[0]*r2[0] + r2[1]*r2[1] + r2[2]*r2[2] ,0.5);
+
+        r1[0] /= mr1;
+        r1[1] /= mr1;
+        r1[2] /= mr1;
+
+        r2[0] /= mr2;
+        r2[1] /= mr2;
+        r2[2] /= mr2;
+
+        double  theta = acos( r1[0]*r2[0] + r1[1]*r2[1] + r1[2]*r2[2] );
+
+        // put values in molecules matrix
+        molecules[i][0][tstep] = mr1;
+        molecules[i][1][tstep] = mr2;
+        molecules[i][2][tstep] = theta;
+    }
+}
+
+void Get_IDs(double** &data, int* &H1, int* &H2, int* &O, int &natoms, 
+             int &minmol, int &maxmol) {
+    for (int nmol = minmol; nmol <= maxmol; nmol ++) {
+        int idH1 = 0;
+        int idH2 = 0;
+        int idO = 0;
+        int cnt = 0;
+        for (int i = 0; i < natoms; i++) {
+            if (nmol == data[i][2]) {
+                if (data[i][1] == 18) {
+                    idO = (int) data[i][0];
+                    cnt += 1;
+                }
+                else {
+                    if (idH1 == 0) {
+                        idH1 = (int) data[i][0];
+                        cnt += 1;
+                    }
+                    else {
+                        idH2 = (int) data[i][0];
+                        cnt += 1;
+                    }
+                }
+            }
+
+            if (cnt == 3) {break;}
+        }
+        H1[nmol - minmol] = idH1;
+        H2[nmol - minmol] = idH2;
+        O[nmol - minmol] = idO;
+    }
+}
+
+void Get_Vibrations(char* &fname, double*** &molecules, int &natoms, 
+                    int &nmol, int &minmol, int &maxmol) {
+    // Arrays for atom ids
+    int* H1 = (int*) calloc(nmol, sizeof(int));
+    int* H2 = (int*) calloc(nmol, sizeof(int));
+    int* O = (int*) calloc(nmol, sizeof(int));
+
+    // Initial line string and vector for boost
+    string line ("Initial String");
+    vector<string> lineV = vector<string>();
+
+    // Array for timestep data
+    double** stepdata = (double**) calloc(natoms, sizeof(double*));
+    for (int i = 0; i < natoms; i++) {
+        stepdata[i] = (double*) calloc(6, sizeof(double));
+    }
+
+    // Open file
+    ifstream dataFile(fname);
+    bool parse (false);
+    int tstep = 0;
+    int acount = 0;
+    // Go through all lines in file
+    while (getline(dataFile, line)) {
+        // If in data section of time step
+        if (parse) {
+            // Add atom data to stepdata array
+            split(lineV, line, is_space());
+            stepdata[acount][0] = stod(lineV[0]);
+            stepdata[acount][1] = stod(lineV[1]);
+            stepdata[acount][2] = stod(lineV[2]);
+            stepdata[acount][3] = stod(lineV[3]);
+            stepdata[acount][4] = stod(lineV[4]);
+            stepdata[acount][5] = stod(lineV[5]);
+            acount += 1;
+
+            // If all atoms in timestep read
+            if (acount == natoms) {
+                parse = false;
+                if (tstep == 0) {
+                    Get_IDs(stepdata, H1, H2, O, natoms, minmol, maxmol);
+                }
+                Sort_Molecules(stepdata, molecules, H1, H2, O, tstep,
+                               natoms, minmol, maxmol);
+                tstep += 1;
+                acount = 0;
+            }
+        }
+
+        // If at beginning of timestep
+        else if (trim_copy(line) == "ITEM: ATOMS id type mol xu yu zu") {
+            parse = true;
+        }
+    }
+}
+
+double Fit_Peaks(double* &x_in, double* &y_in, int &low, int &high) {
+    size_t n = high - low + 1;
+
+    const gsl_multifit_nlinear_type *T = gsl_multifit_nlinear_trust;
+    gsl_multifit_nlinear_workspace *w;
+    gsl_multifit_nlinear_fdf fdf;
+    gsl_multifit_nlinear_parameters fdf_params = 
+	   gsl_multifit_nlinear_default_parameters();
+    const size_t p = 3; // Number of parameters
+
+    gsl_vector *f;
+    //gsl_matrix *J;
+    gsl_matrix *covar = gsl_matrix_alloc (p, p);
+    double* t = (double*) calloc(n,sizeof(double));
+    double* y = (double*) calloc(n,sizeof(double));
+    double* weights = (double*) calloc(n,sizeof(double));
+    struct data d = {n, t, y};
+
+    // Inital values based on which peak
+    double x_init[3] = {0, 0, 0};
+    if (x_in[low] < 1400) {
+        x_init[0] = 0.4;
+        x_init[1] = 1440.0;
+        x_init[2] = 3400.0;
+    }
+    else if (x_in[low] < 3600) {
+        x_init[0] = 0.8;
+        x_init[1] = 3610.0;
+        x_init[2] = 1000.0;
+    }
+    else {
+        x_init[0] = 0.8;
+        x_init[1] = 3670.0;
+        x_init[2] = 1000.0;
+    }
+    gsl_vector_view x = gsl_vector_view_array (x_init, p);
+    gsl_vector_view wts = gsl_vector_view_array(weights, n);
+    gsl_rng * r;
+    //double chisq;
+    double chisq0;
+    int info;
+    size_t i;
+
+    const double xtol = 1e-8;
+    const double gtol = 1e-8;
+    const double ftol = 0.0;
+
+    gsl_rng_env_setup();
+    r = gsl_rng_alloc(gsl_rng_default);
+
+    /* define the function to be minimized */
+    fdf.f = expb_f;
+    fdf.df = expb_df;   /* set to NULL for finite-difference Jacobian */
+    fdf.fvv = NULL;     /* not using geodesic acceleration */
+    fdf.n = n;
+    fdf.p = p;
+    fdf.params = &d;
+
+    // Define data to be fitted
+    for (i = 0; i < n; i++) {
+        t[i] = x_in[low+i];
+        y[i] = y_in[low+i];
+        weights[i] = 1.0;
+    }
+
+    /* allocate workspace with default parameters */
+    w = gsl_multifit_nlinear_alloc (T, &fdf_params, n, p);
+
+    /* initialize solver with starting point and weights */
+    gsl_multifit_nlinear_winit (&x.vector, &wts.vector, &fdf, w);
+
+    /* compute initial cost function */
+    f = gsl_multifit_nlinear_residual(w);
+    gsl_blas_ddot(f, f, &chisq0);
+
+    /* solve the system with a maximum of 1000 iterations */
+    gsl_multifit_nlinear_driver(1000, xtol, gtol, ftol, NULL, NULL, &info, w);
+
+    // Get frequency from fitted parameters
+    double x0 = gsl_vector_get(w->x,1);
+
+    gsl_multifit_nlinear_free (w);
+    gsl_matrix_free (covar);
+    gsl_rng_free (r);
+
+    return x0;
+}
+
+void Get_Frequencies(double*** &molecules, vector<double> &fWl, 
+                     vector<double> &fWh, vector<double> &fTheta, 
+                     double &tstep, int &ntsteps, int &nmols) {
+    // Initialize frequency array to used for fitting
+    int n_out = (ntsteps/2) + 1;
+    double c = 29979245800.0;
+    double* freq = (double*) calloc(n_out, sizeof(double));
+    int thLow = 0;
+    int thHigh = 0;
+    int w1Low = 0;
+    int w1High = 0;
+    int w2High = 0;
+    for (int i = 0; i < n_out; i++) {
+        freq[i] = (double)i / (tstep*n_out*2);
+        freq[i] /= c;
+    }
+
+    for (int i = 0; i < n_out; i++) {
+        // Get indicies for fitting locations
+        if ((freq[i] < 1200) and (freq[i+1] > 1200)) {thLow = i;}
+        else if ((freq[i] < 1700) and (freq[i+1] > 1700)) {thHigh = i+1;}
+
+        else if ((freq[i] < 3450) and (freq[i+1] > 3450)) {w1Low = i;}
+        else if ((freq[i] < 3625) and (freq[i+1] > 3625)) {w1High = i+1;}
+
+        else if ((freq[i] < 3700) and (freq[i+1] > 3700)) {w2High = i+1;}
+    }
+
+    // Go get FFT and peaks for all molecules
+    for (int i = 0; i < nmols; i++) {
+        // Define input vectors of real values
+        double* inr1 = molecules[i][0];
+        double* inr2 = molecules[i][1];
+        double* inTh = molecules[i][2];
+
+        // Get averages and remove
+        double r1avg = 0;
+        double r2avg = 0;
+        double thtavg = 0;
+        for (int j = 0; j < ntsteps; j++) {
+            r1avg += inr1[j];
+            r2avg += inr2[j];
+            thtavg += inTh[j];
+        }
+        r1avg /= (double) ntsteps;
+        r2avg /= (double) ntsteps;
+        thtavg /= (double) ntsteps;
+        for (int j = 0; j < ntsteps; j++) {
+            inr1[j] -= r1avg;
+            inr2[j] -= r2avg;
+            inTh[j] -= thtavg;
+        }
+
+
+        // Output vectors for complex values
+        fftw_complex* outr1 = 
+            (fftw_complex*)fftw_malloc(sizeof(fftw_complex)*n_out);
+        fftw_complex* outr2 = 
+            (fftw_complex*)fftw_malloc(sizeof(fftw_complex)*n_out);
+        fftw_complex* outTh = 
+            (fftw_complex*)fftw_malloc(sizeof(fftw_complex)*n_out);
+
+        // Define FFT plan for the three functions
+        fftw_plan planr1, planr2, planTh;
+        planr1 = fftw_plan_dft_r2c_1d(ntsteps, inr1, outr1, FFTW_ESTIMATE);
+        planr2 = fftw_plan_dft_r2c_1d(ntsteps, inr2, outr2, FFTW_ESTIMATE);
+        planTh = fftw_plan_dft_r2c_1d(ntsteps, inTh, outTh, FFTW_ESTIMATE);
+
+        // Perform FFT
+        fftw_execute(planr1);
+        fftw_execute(planr2);
+        fftw_execute(planTh);
+
+        // Destroy previous plans and in/outs
+        fftw_destroy_plan(planr1);
+        fftw_destroy_plan(planr2);
+        fftw_destroy_plan(planTh);
+
+        // Arrays for frequency magnitudes
+        double* magr1 = (double*) calloc(n_out, sizeof(double));
+        double* magr2 = (double*) calloc(n_out, sizeof(double));
+        double* magth = (double*) calloc(n_out, sizeof(double));
+
+        double maxr1 = 0;
+        double maxr2 = 0;
+        double maxth = 0;
+        // Add magnitudes to arrays
+        for (int j = 0; j < n_out; j++) {
+            magr1[j] = pow( outr1[j][0]*outr1[j][0] + 
+                            outr1[j][1]*outr1[j][1] ,0.5);
+            if (magr1[j] > maxr1) {maxr1 = magr1[j];}
+            magr2[j] = pow( outr2[j][0]*outr2[j][0] + 
+                            outr2[j][1]*outr2[j][1] ,0.5);
+            if (magr2[j] > maxr2) {maxr2 = magr2[j];}
+            magth[j] = pow( outTh[j][0]*outTh[j][0] + 
+                            outTh[j][1]*outTh[j][1] ,0.5);
+            if (magth[j] > maxth) {maxth = magth[j];}
+        }
+        // Normalize arrays
+        for (int j = 0; j < n_out; j++) {
+            magr1[j] /= maxr1;
+            magr2[j] /= maxr2;
+            magth[j] /= maxth;
+        }
+
+        // Fit curves and get frequencies
+        double freqTht = Fit_Peaks(freq, magth, thLow, thHigh);
+        if ( (freqTht < 1700) and (freqTht > 1200) ) 
+        {fTheta.push_back(freqTht);}
+
+        double freqLow = Fit_Peaks(freq, magr1, w1Low, w1High);
+        if ( (freqLow < 3625) and (freqLow > 3450) ) 
+        {fWl.push_back(freqLow);}
+
+        freqLow = Fit_Peaks(freq, magr2, w1Low, w1High);
+        if ( (freqLow < 3625) and (freqLow > 3450) ) 
+        {fWl.push_back(freqLow);}
+
+        double freqHigh = Fit_Peaks(freq, magr1, w1High, w2High);
+        if ( (freqHigh < 3700) and (freqHigh > 3625) ) 
+        {fWh.push_back(freqHigh);}
+
+        freqHigh = Fit_Peaks(freq, magr2, w1High, w2High);
+        if ( (freqHigh < 3690) and (freqHigh > 3650) ) 
+        {fWh.push_back(freqHigh);}
+
+        fftw_free(outr1);
+        fftw_free(outr2);
+        fftw_free(outTh);
+    }
+}
+
+int main (int argc, char* argv[]) {
+    double timestep = stod(argv[2]);
+    double outputstep = stod(argv[3]);
+
+    // Get number of atoms and timesteps
+    int ntimesteps = 0;
+    int natoms = 0;
+    int minmol = 1000000;
+    int maxmol = 0;
+    cout << "Getting numbers...\n";
+    Numbers_From_File( argv[1], ntimesteps, natoms, minmol, maxmol);
+    cout << "Ntimesteps:" << ntimesteps << " " << "Natoms:" << natoms 
+         << " " << "MinMol:" << minmol << " " << "MaxMol:" << maxmol << "\n\n";
+    int nmol = maxmol - minmol +1;
+
+    // Initialize array for data to be transformed
+    double*** moleculeData = (double***) calloc(nmol, sizeof(double**));
+    for (int i = 0; i < nmol; i++) {
+        moleculeData[i] = (double**) calloc(3, sizeof(double*));
+        for (int j = 0; j < 3; j++) {
+            moleculeData[i][j] = (double*) calloc(ntimesteps, sizeof(double));
+        }
+    }
+
+    // Get molecule data
+    cout << "Geting atom data...\n\n";
+    Get_Vibrations(argv[1], moleculeData, natoms, nmol, minmol, maxmol);
+
+    cout << "Doing Fourier transforms...\n\n";
+    vector<double> fTheta = vector<double>();
+    vector<double> fWl = vector<double>();
+    vector<double> fWh = vector<double>();
+    double tstep = timestep*outputstep*(1E-15); // Convert to s
+    Get_Frequencies(moleculeData, fWl, fWh, fTheta, tstep, ntimesteps, nmol);
+
+
+    // Calculate average frequencies
+    double thavg = 0;
+    double wlavg = 0;
+    double whavg = 0;
+
+    for (size_t i = 0; i < fTheta.size(); i++) {
+        thavg += fTheta[i];
+    }
+    thavg /= (double) fTheta.size();
+
+    for (size_t i = 0; i < fWl.size(); i++) {
+        wlavg += fWl[i];
+    }
+    wlavg /= (double) fWl.size();
+
+    for (size_t i = 0; i < fWh.size(); i++) {
+        whavg += fWh[i];
+    }
+    whavg /= (double) fWh.size();
+
+    // Calculate standard deviations
+    double thstd = 0;
+    double wlstd = 0;
+    double whstd = 0;
+    for (size_t i = 0; i < fTheta.size(); i++) {
+        thstd += pow( thavg - fTheta[i] ,2);
+    }
+    thstd /= ((double) fTheta.size() - 1.0);
+    thstd = pow(thstd, 0.5);
+
+    for (size_t i = 0; i < fWl.size(); i++) {
+        wlstd += pow( wlavg - fWl[i] ,2);
+    }
+    wlstd /= ((double) fWl.size() - 1.0);
+    wlstd = pow(wlstd, 0.5);
+
+    for (size_t i = 0; i < fWh.size(); i++) {
+        whstd += pow( whavg - fWh[i] ,2);
+    }
+    whstd /= ((double) fWh.size() - 1.0);
+    whstd = pow(whstd, 0.5);
+
+    // Print averages
+    cout << fixed;
+    cout << setprecision(3);
+    cout << "Tht:   " << thavg << " +/- " << thstd << "\n";
+    cout << "Wlow:  " << wlavg << " +/- " << wlstd << "\n";
+    cout << "Whigh: " << whavg << " +/- " << whstd << "\n\n";
+        
+    return 0;
+}
+\end{verbatim}
+\end{singlespace}
+
+\chapter{Supplemental Files}
+The supplemental file JACS\_Reuse\_Permission.jpg (252.6 kB), is a jpeg image of the permissions for the reuse of Figure~\ref{fig:clay_structure} in this thesis.
+ 
