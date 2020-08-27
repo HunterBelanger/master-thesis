@@ -1,5 +1,5 @@
 # Name of manuscript
-manuscript = Belanger_master_thesis
+manuscript = main
 
 # Source files
 sources = $(wildcard *.tex) references.bib
@@ -9,7 +9,6 @@ latexopt = -halt-on-error -file-line-error
 
 #=================================================================
 # Generate PDF of manuscript using PdfLaTeX
-#=================================================================
 
 all: $(manuscript).pdf
 
@@ -20,12 +19,7 @@ $(manuscript).pdf: $(sources)
 	pdflatex $(latexopt) $(manuscript).tex
 
 #=================================================================
-# Generate Images
-#=================================================================
-
-#=================================================================
-# Other
-#=================================================================
+# Cleanup
 
 clean:
 	@rm -f *.aux *.bbl *.blg *.log *.out *.spl *.lof *.lot *.toc \
